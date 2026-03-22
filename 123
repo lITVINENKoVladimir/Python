@@ -1,0 +1,31 @@
+import requests as rq
+import pandas as pd
+import json
+BASE_URL = 'http://www.cbr.ru/dataservice'
+response=rq.get(f"{BASE_URL}/publications")
+public_data = response.json()
+public_dataf=pd.DataFrame(public_data)
+active=public_dataf[public_dataf['NoActive']==False].copy()
+task_1=active[['id','parent_id','category_name']].copy()
+task_1.columns=['id','parent_id','category_name']
+task_1=task_1.sort_values(['parent_id','id']).reset_index(drop=True)
+
+alll=task_1["parent_id"].value_counts()
+unique=alll[alll==1].index[0]
+pub_id= task_1[task_1['parent_id']==unique]['id'].values[0]
+response=rq.get(f"{BASE_URL}/datasets?publicationId={pub_id}")
+datasets=response.json()
+task_2=pd.DataFrame(datasets)
+task_2=task_2[['id', 'full_name','type']]
+task_2.columns=['id','full_name','type']
+task_2=task_2.sort_values('id').reset_index(drop=True)
+
+max_parent=task_1['parent_id'].max()
+ids=task_1[task_1['parent_id'] == max_parent]['id'].tolist()
+dataframes=[]
+for pub_id in ids:
+    df=pd.DataFrame(rq.get(f"{BASE_URL}/datasets?publicationId={pub_id}").json())
+    dataframes.append(df[['id', 'full_name', 'type']])
+task_3=pd.concat(dataframes, ignore_index=True)
+task_3.columns = ['id','full_name','type']
+task_3=task_3.sort_values('id').reset_index(drop=True)
